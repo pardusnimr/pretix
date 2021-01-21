@@ -1,0 +1,35 @@
+{% extends "pretixcontrol/event/base.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}{% trans "Scheduled Emails" %}{% endblock %}
+{% block content %}
+    <h1>{% trans "Scheduled Emails" %}</h1>
+    {% block inner %}
+        <ul class="list-group">
+        <li class="list-group-item">
+            <div class="row">
+                <div class="col-lg-3 col-sm-6 col-xs-12">
+                    test
+                </div>
+                <div class="col-lg-3 col-sm-6 col-xs-12">
+                    testing
+                </div>
+            </div>
+        </li>
+        {% for rule in rules %}
+            <li class="list-group-item logentry">
+                <div class="row">
+                    <div class="col-lg-3 col-sm-6 col-xs-12">
+                        <a href="{% url "plugins:sendmail:updaterule" event=event organizer=organizer rule=rule %}">{{ rule.subject }}</a>
+                    </div>
+                    <div class="col-lg-3 col-sm-6 col-xs-12">
+                        {{ rule.pk }}
+                    </div>
+                </div>
+            </li>
+        {% endfor %}
+        {% include "pretixcontrol/pagination.html" %}
+    </ul>
+
+    {% endblock %}
+{% endblock %}

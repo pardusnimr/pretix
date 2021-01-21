@@ -6,11 +6,13 @@ from django_scopes.forms import SafeModelMultipleChoiceField
 from i18nfield.forms import I18nFormField, I18nTextarea, I18nTextInput
 
 from pretix.base.email import get_available_placeholders
-from pretix.base.forms import PlaceholderValidator
+from pretix.base.forms import PlaceholderValidator, I18nModelForm
 from pretix.base.forms.widgets import SplitDateTimePickerWidget
 from pretix.base.models import CheckinList, Item, Order, SubEvent
-from pretix.control.forms import CachedFileField
+from pretix.base.reldate import RelativeDateTimeWidget, RelativeDateTimeField
+from pretix.control.forms import CachedFileField, SplitDateTimeField
 from pretix.control.forms.widgets import Select2, Select2Multiple
+from pretix.plugins.sendmail.models import Rule
 
 
 class MailForm(forms.Form):
@@ -172,3 +174,73 @@ class MailForm(forms.Form):
             del self.fields['subevent']
             del self.fields['subevents_from']
             del self.fields['subevents_to']
+
+
+class CreateRule(I18nModelForm):
+    use_absolute_date = forms.BooleanField(required=False)
+
+    class Meta:
+        model = Rule
+
+        fields = ['subevent',
+                  'subject', 'template',
+                  'use_absolute_date',
+                  'send_date', 'send_offset', 'offset_to_event_end', 'offset_is_after',
+                  'include_pending', 'all_products', 'limit_products']
+
+        field_classes = {
+            'subevent': SafeModelMultipleChoiceField,
+            'limit_products': SafeModelMultipleChoiceField,
+            'send_date': SplitDateTimeField,
+        }
+
+        widgets = {
+            'send_date': SplitDateTimePickerWidget,
+        }
+
+        labels = {
+            'include_pending': _('Include pending orders'),
+            'offset_to_event_end': _('Offset is from the end of the event'),
+
+        }
+
+        help_texts = {
+
+        }
+
+    def clean(self):
+        d = super().clean()
+        sd = d.get('send_date')
+        so = d.get('send_offset')
+        otee = d.get('offset_to_event_end')
+        oia = d.get('offset_is_after')
+        if sd and (so or otee or oia):
+            raise ValidationError(_('Please specify either send date or send offset, not both.'))
+
+        return d
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.event.has_subevents:
+            self.fields['subevent'].queryset = self.event.subevents.all()
+            self.fields['subevent'].widget = Select2Multiple(
+                attrs={
+                    'data-model-select2': 'event',
+                    'data-select2-url': reverse('control:event.subevents.select2', kwargs={
+                        'event': self.event.slug,
+                        'organizer': self.event.organizer.slug,
+                    }),
+                    'data-placeholder': pgettext_lazy('subevent', 'Date')
+                }
+            )
+            self.fields['subevent'].widget.choices = self.fields['subevent'].choices
+        else:
+            del self.fields['subevent']
+
+        self.fields['limit_products'] = forms.ModelMultipleChoiceField(
+            widget=forms.CheckboxSelectMultiple(
+                attrs={'class': 'scrolling-multiple-choice'},
+            ),
+            queryset=Item.objects.filter(event=self.event),
+        )

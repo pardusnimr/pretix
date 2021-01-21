@@ -6,6 +6,8 @@ from django.contrib import messages
 from django.db.models import Exists, OuterRef, Q
 from django.http import Http404
 from django.shortcuts import redirect
+from django.urls import reverse
+from django.utils.functional import cached_property
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import FormView, ListView
@@ -20,6 +22,8 @@ from pretix.control.permissions import EventPermissionRequiredMixin
 from pretix.plugins.sendmail.tasks import send_mails
 
 from . import forms
+from .models import Rule
+from ...control.views import CreateView, UpdateView
 
 logger = logging.getLogger('pretix.plugins.sendmail')
 
@@ -237,3 +241,103 @@ class EmailHistoryView(EventPermissionRequiredMixin, ListView):
                     pass
 
         return ctx
+
+
+#
+# Oh hi! you're digging around in the source code right now!
+# first off, i'm sorry for this shitty code, it was written using
+# mass amounts of caffeine and minuscule amounts of being able to focus
+#
+# A few things i've been considering:
+# - CreateRule and UpdateRule are probably redundant, or can use the same form with different initial data
+#
+# what i haven't been considering:
+# - just reading the damn docs already (not entirely serious)
+#
+
+class CreateRule(EventPermissionRequiredMixin, CreateView):
+    template_name = 'pretixplugins/sendmail/debug_create_rule.html'
+    permission = 'can_change_orders'
+    form_class = forms.CreateRule
+
+    model = Rule
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['event'] = self.request.event
+        return kwargs
+
+    def form_invalid(self, form):
+        messages.error(self.request, _('We could not send the email. See below for details.'))
+        return super().form_invalid(form)
+
+    def form_valid(self, form):
+
+        self.output = {}
+
+        if self.request.POST.get("action") == "preview":
+            for l in self.request.event.settings.locales:
+                with language(l, self.request.event.settings.region):
+                    context_dict = TolerantDict()
+                    for k, v in get_available_placeholders(self.request.event, ['event', 'order',
+                                                                                'position_or_address']).items():
+                        context_dict[k] = '<span class="placeholder" title="{}">{}</span>'.format(
+                            _('This value will be replaced based on dynamic parameters.'),
+                            v.render_sample(self.request.event)
+                        )
+
+                    subject = bleach.clean(form.cleaned_data['subject'].localize(l), tags=[])
+                    preview_subject = subject.format_map(context_dict)
+                    template = form.cleaned_data['template'].localize(l)
+                    preview_text = markdown_compile_email(template.format_map(context_dict))
+
+                    self.output[l] = {
+                        'subject': _('Subject: {subject}').format(subject=preview_subject),
+                        'html': preview_text,
+                    }
+
+            return self.get(self.request, *self.args, **self.kwargs)
+
+        messages.success(self.request, _('Your rule has been created'))
+
+        self.object = form.save()
+
+        # self.success_url = reverse('plugins:sendmail:updaterule', kwargs={
+        #     'organizer': self.request.event.organizer.slug,
+        #     'event': self.request.event.slug,
+        #     'rule': self.object.pk,
+        # })
+
+        return redirect(
+            'plugins:sendmail:updaterule',
+            event=self.request.event.slug,
+            organizer=self.request.event.organizer.slug,
+            rule=self.object.pk,
+        )
+
+
+class UpdateRule(EventPermissionRequiredMixin, UpdateView):
+    model = Rule
+    form_class = ...
+    template_name = ''
+    permission = 'can_change_event_settings'
+
+    @cached_property
+    def object(self) -> Rule:
+        return self.request.rule
+
+    def get_object(self, queryset=None) -> Rule:
+        return self.object
+
+    ...  # WIP
+
+
+class ListRules(EventPermissionRequiredMixin, ListView):
+    template_name = 'pretixplugins/sendmail/list_rules.html'
+    model = Rule
+    paginate_by = 20
+    context_object_name = 'rules'
+
+    def get_queryset(self):
+        qs = self.model.objects.all()
+        return qs
