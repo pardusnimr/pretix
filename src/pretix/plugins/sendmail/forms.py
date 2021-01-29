@@ -185,7 +185,7 @@ class CreateRule(I18nModelForm):
         fields = ['subevent',
                   'subject', 'template',
                   'use_absolute_date',
-                  'send_date', 'send_offset', 'offset_to_event_end', 'offset_is_after',
+                  'send_date', 'send_offset_days', 'send_offset_time', 'offset_to_event_end', 'offset_is_after',
                   'include_pending', 'all_products', 'limit_products']
 
         field_classes = {

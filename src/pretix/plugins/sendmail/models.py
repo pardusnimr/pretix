@@ -1,5 +1,6 @@
 from django.db import models
 from django.urls import reverse
+from django_scopes import ScopedManager
 from i18nfield.fields import I18nCharField, I18nTextField
 
 from pretix.base.models import Event, SubEvent, OrderPosition, Item
@@ -31,19 +32,23 @@ class Rule(models.Model):
         (BEFORE, "Before"),
     ]
 
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, null=True)  # TODO: remove null before release
+
     subevent = models.ManyToManyField(SubEvent, through=ScheduledMail)
 
     subject = I18nCharField(max_length=255)
     template = I18nTextField()
 
+    # all products or limit products
     all_products = models.BooleanField(default=True)
     limit_products = models.ManyToManyField(Item, blank=True)
+
     include_pending = models.BooleanField(default=False, blank=True)
 
+    # either send_date or send_offset_* have to be set
     send_date = models.DateTimeField(null=True, blank=True)
-    send_offset = models.DurationField(null=True, blank=True)
-    send_offset_days = models.DateField(null=True, blank=True)
-
+    send_offset_days = models.IntegerField(null=True, blank=True)
+    send_offset_time = models.TimeField(null=True, blank=True)
 
     date_is_absolute = models.BooleanField(default=True, blank=True)
     offset_to_event_end = models.BooleanField(default=False)
@@ -53,9 +58,9 @@ class Rule(models.Model):
 
     # test_field = models.DateTimeField(blank=True)
 
-    def get_absolute_url(self):
+    def get_absolute_url(self):  # TODO: figure out why the fuck this isn't working
         return reverse('plugins:sendmail:updaterule', kwargs={
-            'organizer': self.subevent.organizer.slug,
-            'event': self.subevent.event.slug,
+            'organizer': self.event.organizer.slug,
+            'event': self.event.event.slug,
             'rule': self.pk,
         })

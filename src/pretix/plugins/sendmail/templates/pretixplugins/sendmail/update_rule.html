@@ -1,0 +1,24 @@
+{% extends 'pretixcontrol/event/base.html' %}
+{% load i18n %}
+{% load static %}
+{% block title %}{% trans "Update Scheduled Email" %}{% endblock %}
+{% block content %}
+    <h1>{% trans "Update Scheduled Email" %}</h1>
+    {% block inner %}
+        <form class="form-horizontal" method="post" action="" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            {# this is temporary, replace with proper bs3 tags later #}
+            {{ form.as_p }}
+
+            {# todo: add email preview here #}
+
+            <div class="form-group submit-group">
+                <button type="submit" class="btn btn-primary btn-save">
+                    {% trans "Send" %}
+                </button>
+            </div>
+
+        </form>
+    {% endblock %}
+{% endblock %}

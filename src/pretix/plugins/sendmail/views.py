@@ -318,18 +318,17 @@ class CreateRule(EventPermissionRequiredMixin, CreateView):
 
 class UpdateRule(EventPermissionRequiredMixin, UpdateView):
     model = Rule
-    form_class = ...
-    template_name = ''
+    form_class = forms.CreateRule  # reusing it
+    template_name = 'pretixplugins/sendmail/update_rule.html'
     permission = 'can_change_event_settings'
+    pk_url_kwarg = "rule"
 
-    @cached_property
-    def object(self) -> Rule:
-        return self.request.rule
-
-    def get_object(self, queryset=None) -> Rule:
-        return self.object
-
-    ...  # WIP
+    def get_success_url(self):
+        return reverse('plugins:sendmail:updaterule', kwargs={
+            'organizer': self.request.event.organizer.slug,
+            'event': self.request.event.event.slug,
+            'rule': self.object.pk,
+        })
 
 
 class ListRules(EventPermissionRequiredMixin, ListView):
@@ -337,7 +336,3 @@ class ListRules(EventPermissionRequiredMixin, ListView):
     model = Rule
     paginate_by = 20
     context_object_name = 'rules'
-
-    def get_queryset(self):
-        qs = self.model.objects.all()
-        return qs
