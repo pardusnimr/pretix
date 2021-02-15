@@ -11,6 +11,7 @@ from django.utils.functional import cached_property
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import FormView, ListView
+from django_scopes import scope
 
 from pretix.base.email import get_available_placeholders
 from pretix.base.i18n import LazyI18nString, language
@@ -256,7 +257,7 @@ class EmailHistoryView(EventPermissionRequiredMixin, ListView):
 #
 
 class CreateRule(EventPermissionRequiredMixin, CreateView):
-    template_name = 'pretixplugins/sendmail/debug_create_rule.html'
+    template_name = 'pretixplugins/sendmail/create_rule.html'
     permission = 'can_change_orders'
     form_class = forms.CreateRule
 
@@ -300,13 +301,9 @@ class CreateRule(EventPermissionRequiredMixin, CreateView):
 
         messages.success(self.request, _('Your rule has been created'))
 
-        self.object = form.save()
+        form.instance.event = self.request.event
 
-        # self.success_url = reverse('plugins:sendmail:updaterule', kwargs={
-        #     'organizer': self.request.event.organizer.slug,
-        #     'event': self.request.event.slug,
-        #     'rule': self.object.pk,
-        # })
+        self.object = form.save()
 
         return redirect(
             'plugins:sendmail:updaterule',
@@ -326,9 +323,40 @@ class UpdateRule(EventPermissionRequiredMixin, UpdateView):
     def get_success_url(self):
         return reverse('plugins:sendmail:updaterule', kwargs={
             'organizer': self.request.event.organizer.slug,
-            'event': self.request.event.event.slug,
+            'event': self.request.event.slug,
             'rule': self.object.pk,
         })
+
+    def get_queryset(self):
+        with scope(event=self.request.event):
+            return Rule.objects.all()
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        o = {}
+
+        for lang in self.request.event.settings.locales:
+            with language(lang, self.request.event.settings.region):
+                placeholders = TolerantDict()
+                for k, v in get_available_placeholders(self.request.event, ['event', 'order', 'position_or_address']).items():
+                    placeholders[k] = '<span class="placeholder" title="{}">{}</span>'.format(
+                        _('This value will be replaced based on dynamic parameters.'),
+                        v.render_sample(self.request.event)
+                    )
+
+                subject = bleach.clean(self.object.subject.localize(lang), tags=[])
+                preview_subject = subject.format_map(placeholders)
+                template = self.object.template.localize(lang)
+                preview_text = markdown_compile_email(template.format_map(placeholders))
+
+                o[lang] = {
+                    'subject': _('Subject: {subject}'.format(subject=preview_subject)),
+                    'html': preview_text,
+                }
+
+        ctx['output'] = o
+
+        return ctx
 
 
 class ListRules(EventPermissionRequiredMixin, ListView):
@@ -336,3 +364,7 @@ class ListRules(EventPermissionRequiredMixin, ListView):
     model = Rule
     paginate_by = 20
     context_object_name = 'rules'
+
+    def get_queryset(self):
+        with scope(event=self.request.event):
+            return Rule.objects.all()

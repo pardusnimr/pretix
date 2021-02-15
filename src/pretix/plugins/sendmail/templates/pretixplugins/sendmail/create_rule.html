@@ -16,24 +16,23 @@
 
             {% bootstrap_field form.template layout='horizontal' %}
 
+            {% bootstrap_field form.date_is_absolute layout='horizontal' %}
+
             {% bootstrap_field form.send_date layout='horizontal' %}
 
-            {% bootstrap_field form.send_offset layout='horizontal' %}
+            {% bootstrap_field form.send_offset_days layout='horizontal' %}
 
-            {% bootstrap_field form.offset_to_event_end layout='horizontal' %}
-
-            {% bootstrap_field form.offset_is_after layout='horizontal' %}
+            {% bootstrap_field form.send_offset_time layout='horizontal' %}
 
             {% bootstrap_field form.include_pending layout='horizontal' %}
 
             {% bootstrap_field form.all_products layout='horizontal' %}
 
+            {% bootstrap_field form.limit_products layout='horizontal' %}
+
             <div class="form-group submit-group">
-                <button type="submit" class="btn btn-default btn-save pull-left" name="action" value="preview">
-                    {% trans "Preview email" %}
-                </button>
                 <button type="submit" class="btn btn-primary btn-save">
-                    {% trans "Send" %}
+                    {% trans "Create" %}
                 </button>
             </div>
         </form>

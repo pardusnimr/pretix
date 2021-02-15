@@ -177,25 +177,38 @@ class MailForm(forms.Form):
 
 
 class CreateRule(I18nModelForm):
-    use_absolute_date = forms.BooleanField(required=False)
-
     class Meta:
         model = Rule
 
         fields = ['subevent',
                   'subject', 'template',
-                  'use_absolute_date',
-                  'send_date', 'send_offset_days', 'send_offset_time', 'offset_to_event_end', 'offset_is_after',
+                  'date_is_absolute',
+                  'send_date', 'send_offset_days', 'send_offset_time',
                   'include_pending', 'all_products', 'limit_products']
 
         field_classes = {
             'subevent': SafeModelMultipleChoiceField,
             'limit_products': SafeModelMultipleChoiceField,
             'send_date': SplitDateTimeField,
+            'date_is_absolute': forms.ChoiceField,
         }
 
+        # TODO: fix date_is_absolute label and error messages
+        # actually, just finalize the form in general. functionality's all there, but UX isn't 100% yet
+
         widgets = {
-            'send_date': SplitDateTimePickerWidget,
+            'send_date': SplitDateTimePickerWidget(attrs={
+                'data-display-dependency': '#id_date_is_absolute_0',
+            }),
+            'send_offset_days': forms.NumberInput(attrs={
+                'data-display-dependency': '#id_date_is_absolute_1,#id_date_is_absolute_2,#id_date_is_absolute_3,'
+                                           '#id_date_is_absolute_4',
+            }),
+            'send_offset_time': forms.TimeInput(attrs={
+                'data-display-dependency': '#id_date_is_absolute_1,#id_date_is_absolute_2,#id_date_is_absolute_3,'
+                                           '#id_date_is_absolute_4',
+            }),
+            'date_is_absolute': forms.RadioSelect,
         }
 
         labels = {
@@ -208,18 +221,20 @@ class CreateRule(I18nModelForm):
 
         }
 
-    def clean(self):
-        d = super().clean()
-        sd = d.get('send_date')
-        so = d.get('send_offset')
-        otee = d.get('offset_to_event_end')
-        oia = d.get('offset_is_after')
-        if sd and (so or otee or oia):
-            raise ValidationError(_('Please specify either send date or send offset, not both.'))
-
-        return d
-
     def __init__(self, *args, **kwargs):
+        instance = kwargs.get('instance')
+
+        if instance:
+            if instance.date_is_absolute:
+                dia = "abs"
+            else:
+                dia = "rel"
+                dia += "_a" if instance.offset_is_after else "_b"
+                dia += "_e" if instance.offset_to_event_end else "_s"
+
+            kwargs.setdefault('initial', {})
+            kwargs['initial']['date_is_absolute'] = dia
+
         super().__init__(*args, **kwargs)
 
         if self.event.has_subevents:
@@ -243,4 +258,42 @@ class CreateRule(I18nModelForm):
                 attrs={'class': 'scrolling-multiple-choice'},
             ),
             queryset=Item.objects.filter(event=self.event),
+            required=False,
         )
+
+        self.fields['date_is_absolute'].choices = [('abs', _('Absolute')),
+                                                   ('rel_b_s', _('Relative, before event start')),
+                                                   ('rel_b_e', _('Relative, before event end')),
+                                                   ('rel_a_s', _('Relative, after event start')),
+                                                   ('rel_a_e', _('Relative, after event end'))]
+
+    def clean(self):
+        d = super().clean()
+        sd = d.get('send_date')
+        sod = d.get('send_offset_days')
+        sot = d.get('send_offset_time')
+        dia = d.get('date_is_absolute')
+        if dia == 'abs':
+            if not sd:
+                raise ValidationError(_('Please specify the send date'))
+            d['date_is_absolute'] = True
+            d['send_offset_days'] = d['send_offset_time'] = None
+        else:
+            # this is probably a bit ugly, i am sorry
+            if not (sod and sot):
+                raise ValidationError(_('Please specify the offset days and time'))
+            d['offset_is_after'] = True if dia[4] == 'a' else False
+            d['offset_to_event_end'] = True if dia[6] == 'e' else False
+            d['date_is_absolute'] = False
+            d['send_date'] = None
+
+        ap = d.get('all_products')
+        lp = d.get('limit_products')
+        if ap:
+            # having products checked while the option is ignored is probably counterintuitive
+            d['limit_products'] = Item.objects.none()
+        else:
+            if not lp:
+                raise ValidationError(_('Please specify a product'))
+
+        return d

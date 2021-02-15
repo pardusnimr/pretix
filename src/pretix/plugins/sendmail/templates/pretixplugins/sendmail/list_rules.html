@@ -6,28 +6,18 @@
     <h1>{% trans "Scheduled Emails" %}</h1>
     {% block inner %}
         <ul class="list-group">
-        <li class="list-group-item">
-            <div class="row">
-                <div class="col-lg-3 col-sm-6 col-xs-12">
-                    test
-                </div>
-                <div class="col-lg-3 col-sm-6 col-xs-12">
-                    testing
-                </div>
-            </div>
-        </li>
-        {% for rule in rules %}
-            <li class="list-group-item logentry">
-                <div class="row">
-                    <div class="col-lg-3 col-sm-6 col-xs-12">
-                        <a href="{% url "plugins:sendmail:updaterule" event=request.event.slug organizer=request.event.organizer.slug rule=rule.pk %}">{{ rule.subject }}</a>
+            {% for rule in rules %} {# TODO: replace this with a table and think about what to display in it #}
+                <li class="list-group-item logentry">
+                    <div class="row">
+                        <div class="col-lg-3 col-sm-6 col-xs-12">
+                            <a href="{% url "plugins:sendmail:updaterule" event=request.event.slug organizer=request.event.organizer.slug rule=rule.pk %}">{{ rule.subject }}</a>
+                        </div>
+                        <div class="col-lg-6 col-sm-12 col-xs-12">
+                            {{ rule.subject }}
+                        </div>
                     </div>
-                    <div class="col-lg-6 col-sm-12 col-xs-12">
-                        {{ rule.subject }}
-                    </div>
-                </div>
-            </li>
-        {% endfor %}
+                </li>
+            {% endfor %}
         {% include "pretixcontrol/pagination.html" %}
     </ul>
 

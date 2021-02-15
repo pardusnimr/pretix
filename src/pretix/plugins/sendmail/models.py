@@ -16,6 +16,8 @@ class ScheduledMail(models.Model):
 class Rule(models.Model):
     # written with far too much mate and far too little energy.
 
+    # todo: consider using a slug instead of pk in the urls
+
     CUSTOMERS = "customers"
     ATTENDEES = "attendees"
 
@@ -32,7 +34,7 @@ class Rule(models.Model):
         (BEFORE, "Before"),
     ]
 
-    event = models.ForeignKey(Event, on_delete=models.CASCADE, null=True)  # TODO: remove null before release
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
 
     subevent = models.ManyToManyField(SubEvent, through=ScheduledMail)
 
@@ -40,7 +42,7 @@ class Rule(models.Model):
     template = I18nTextField()
 
     # all products or limit products
-    all_products = models.BooleanField(default=True)
+    all_products = models.BooleanField(default=True, blank=True)
     limit_products = models.ManyToManyField(Item, blank=True)
 
     include_pending = models.BooleanField(default=False, blank=True)
@@ -51,14 +53,14 @@ class Rule(models.Model):
     send_offset_time = models.TimeField(null=True, blank=True)
 
     date_is_absolute = models.BooleanField(default=True, blank=True)
-    offset_to_event_end = models.BooleanField(default=False)
-    offset_is_after = models.BooleanField(default=False)
+    offset_to_event_end = models.BooleanField(default=False, blank=True)
+    offset_is_after = models.BooleanField(default=False, blank=True)
 
     send_to = models.CharField(max_length=10, choices=SEND_TO_CHOICES)
 
-    # test_field = models.DateTimeField(blank=True)
+    objects = ScopedManager(event='event')
 
-    def get_absolute_url(self):  # TODO: figure out why the fuck this isn't working
+    def get_absolute_url(self):  # TODO: figure out why the fuck this isn't doing anything
         return reverse('plugins:sendmail:updaterule', kwargs={
             'organizer': self.event.organizer.slug,
             'event': self.event.event.slug,
