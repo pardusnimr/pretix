@@ -288,7 +288,7 @@ var form_handlers = function (el) {
         var dependent = $(this),
             dependency = $($(this).attr("data-display-dependency")),
             update = function (ev) {
-                var enabled = (dependency.attr("type") === 'checkbox' || dependency.attr("type") === 'radio') ? dependency.prop('checked') : !!dependency.val();
+                var enabled = dependency.toArray().some(function(d) {return (d.type === 'checkbox' || d.type === 'radio') ? d.checked : !!d.value;})
                 var $toggling = dependent;
                 if (dependent.get(0).tagName.toLowerCase() !== "div") {
                     $toggling = dependent.closest('.form-group');
