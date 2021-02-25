@@ -18,7 +18,6 @@ def control_nav_import(sender, request=None, **kwargs):
                 'event': request.event.slug,
                 'organizer': request.event.organizer.slug,
             }),
-            'active': (url.namespace == 'plugins:sendmail' and url.url_name == 'send'),
             'icon': 'envelope',
             'children': [
                 {
@@ -37,21 +36,21 @@ def control_nav_import(sender, request=None, **kwargs):
                     }),
                     'active': (url.namespace == 'plugins:sendmail' and url.url_name == 'history'),
                 },
+                # {
+                #     'label': _('Schedule emails'),
+                #     'url': reverse('plugins:sendmail:rule.create', kwargs={
+                #         'event': request.event.slug,
+                #         'organizer': request.event.organizer.slug,
+                #     }),
+                #     'active': (url.namespace == 'plugins:sendmail' and url.url_name == 'rule.create'),
+                # },
                 {
-                    'label': _('Schedule emails'),
-                    'url': reverse('plugins:sendmail:schedule', kwargs={
+                    'label': _('Scheduled emails'),
+                    'url': reverse('plugins:sendmail:rule.list', kwargs={
                         'event': request.event.slug,
                         'organizer': request.event.organizer.slug,
                     }),
-                    'active': (url.namespace == 'plugins:sendmail' and url.url_name == 'history'),
-                },
-                {
-                    'label': _('Scheduled emails'),  # these two are very similar maybe come up with something better
-                    'url': reverse('plugins:sendmail:listrules', kwargs={
-                        'event': request.event.slug,
-                        'organizer': request.event.organizer.slug,
-                    }),
-                    'active': (url.namespace == 'plugins:sendmail' and url.url_name == 'history'),
+                    'active': (url.namespace == 'plugins:sendmail' and url.url_name == 'rule.list'),
                 },
             ]
         },

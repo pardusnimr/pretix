@@ -1,5 +1,7 @@
 from django.db import models
 from django.urls import reverse
+from django.utils.formats import date_format
+from django.utils.translation import gettext_lazy as _, pgettext_lazy
 from django_scopes import ScopedManager
 from i18nfield.fields import I18nCharField, I18nTextField
 
@@ -61,8 +63,22 @@ class Rule(models.Model):
     objects = ScopedManager(event='event')
 
     def get_absolute_url(self):  # TODO: figure out why the fuck this isn't doing anything
-        return reverse('plugins:sendmail:updaterule', kwargs={
+        return reverse('plugins:sendmail:rule.update', kwargs={
             'organizer': self.event.organizer.slug,
             'event': self.event.event.slug,
             'rule': self.pk,
         })
+
+    @property
+    def human_readable_time(self):
+        if self.date_is_absolute:
+            d = self.send_date
+            return _('on {date} at {time}').format(date=date_format(d, 'SHORT_DATE_FORMAT'),
+                                                   time=date_format(d, 'TIME_FORMAT'))
+        else:
+            if self.offset_to_event_end:
+                s = _('{days} days after event end at {time}') if self.offset_is_after else _('{days} days before event end at {time}')
+            else:
+                s = _('{days} days after event start at {time}') if self.offset_is_after else _('{days} days before event start at {time}')
+
+            return s.format(days=self.send_offset_days, time=self.send_offset_time)

@@ -3,14 +3,15 @@ import logging
 import bleach
 import dateutil
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
-from django.http import Http404
+from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.functional import cached_property
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
-from django.views.generic import FormView, ListView
+from django.views.generic import FormView, ListView, DeleteView
 from django_scopes import scope
 
 from pretix.base.email import get_available_placeholders
@@ -306,7 +307,7 @@ class CreateRule(EventPermissionRequiredMixin, CreateView):
         self.object = form.save()
 
         return redirect(
-            'plugins:sendmail:updaterule',
+            'plugins:sendmail:rule.update',
             event=self.request.event.slug,
             organizer=self.request.event.organizer.slug,
             rule=self.object.pk,
@@ -315,13 +316,13 @@ class CreateRule(EventPermissionRequiredMixin, CreateView):
 
 class UpdateRule(EventPermissionRequiredMixin, UpdateView):
     model = Rule
-    form_class = forms.CreateRule  # reusing it
+    form_class = forms.CreateRule
     template_name = 'pretixplugins/sendmail/update_rule.html'
     permission = 'can_change_event_settings'
     pk_url_kwarg = "rule"
 
     def get_success_url(self):
-        return reverse('plugins:sendmail:updaterule', kwargs={
+        return reverse('plugins:sendmail:rule.update', kwargs={
             'organizer': self.request.event.organizer.slug,
             'event': self.request.event.slug,
             'rule': self.object.pk,
@@ -360,7 +361,7 @@ class UpdateRule(EventPermissionRequiredMixin, UpdateView):
 
 
 class ListRules(EventPermissionRequiredMixin, ListView):
-    template_name = 'pretixplugins/sendmail/list_rules.html'
+    template_name = 'pretixplugins/sendmail/rule_list.html'
     model = Rule
     paginate_by = 20
     context_object_name = 'rules'
@@ -368,3 +369,35 @@ class ListRules(EventPermissionRequiredMixin, ListView):
     def get_queryset(self):
         with scope(event=self.request.event):
             return Rule.objects.all()
+
+
+class DeleteRule(EventPermissionRequiredMixin, DeleteView):
+    model = Rule
+    permission = 'can_change_event_settings'
+    template_name = 'pretixplugins/sendmail/rule_delete.html'
+    pk_url_kwarg = 'rule'
+    context_object_name = 'rule'
+
+    def get_success_url(self):
+        return reverse("plugins:sendmail:rule.list", kwargs={
+            'organizer': self.request.event.organizer.slug,
+            'event': self.request.event.slug,
+        })
+
+    def get_object(self, queryset=None) -> Rule:
+        with scope(event=self.request.event):
+            return Rule.objects.filter(id=self.kwargs['rule'])[0]
+
+    @transaction.atomic
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        success_url = self.get_success_url()
+        # TODO: log
+        self.object.delete()
+        messages.success(self.request, _('The selected rule has been deleted.'))
+        return HttpResponseRedirect(success_url)
+
+
+
+
+

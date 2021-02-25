@@ -8,11 +8,7 @@
         <form class="form-horizontal" method="post" action="" enctype="multipart/form-data">
             {% csrf_token %}
 
-            {% if form.subevent %}
-                {% bootstrap_field form.subevent layout='horizontal' %}
-            {% endif %}
-
-            {% bootstrap_field form.subject layout='horizontal' %}
+            {% bootstrap_field form.subject layout='control' %}
 
             {% bootstrap_field form.template layout='horizontal' %}
 
@@ -25,6 +21,8 @@
             {% bootstrap_field form.send_offset_time layout='horizontal' %}
 
             {% bootstrap_field form.include_pending layout='horizontal' %}
+
+            {% bootstrap_field form.send_to layout='horizontal' %}
 
             {% bootstrap_field form.all_products layout='horizontal' %}
 

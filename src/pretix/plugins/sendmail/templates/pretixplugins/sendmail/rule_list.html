@@ -1,0 +1,42 @@
+{% extends "pretixcontrol/event/base.html" %}
+{% load i18n %}
+{% load static %}
+{% block title %}{% trans "Scheduled Emails" %}{% endblock %}
+{% block content %}
+    <h1>{% trans "Scheduled Emails" %}</h1>
+    <p>
+        <a href="{% url "plugins:sendmail:rule.create" organizer=request.organizer.slug event=request.event.slug %}">
+            <button class="btn btn-primary">{% trans "Create Rule" %}</button>
+        </a>
+    </p>
+
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+            <tr>
+                <th>{% trans "Email subject" %}</th>
+                <th>{% trans "Will be sent at" %}</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in rules %} {# TODO: replace this with a table and think about what to display in it #}
+                <tr>
+                    <td>
+                        <strong><a href="{% url "plugins:sendmail:rule.update" organizer=request.organizer.slug event=request.event.slug rule=r.pk %}">{{ r.subject }}</a></strong>
+                    </td>
+                    <td>
+                        {{ r.human_readable_time }}
+                    </td>
+                    <td>
+                        <a class="btn btn-sm btn-default" href="{% url "plugins:sendmail:rule.update" organizer=request.organizer.slug event=request.event.slug rule=r.pk %}"><i class="fa fa-edit"></i></a>
+                        <a class="btn btn-sm btn-danger" href="{% url "plugins:sendmail:rule.delete" organizer=request.organizer.slug event=request.event.slug rule=r.pk %}"><i class="fa fa-trash"></i></a>
+                    </td>
+                </tr>
+            {% endfor %}
+
+            </tbody>
+        </table>
+    </div>
+    {% include "pretixcontrol/pagination.html" %}
+{% endblock %}

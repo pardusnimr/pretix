@@ -9,7 +9,6 @@ from pretix.base.email import get_available_placeholders
 from pretix.base.forms import PlaceholderValidator, I18nModelForm
 from pretix.base.forms.widgets import SplitDateTimePickerWidget
 from pretix.base.models import CheckinList, Item, Order, SubEvent
-from pretix.base.reldate import RelativeDateTimeWidget, RelativeDateTimeField
 from pretix.control.forms import CachedFileField, SplitDateTimeField
 from pretix.control.forms.widgets import Select2, Select2Multiple
 from pretix.plugins.sendmail.models import Rule
@@ -180,11 +179,11 @@ class CreateRule(I18nModelForm):
     class Meta:
         model = Rule
 
-        fields = ['subevent',
-                  'subject', 'template',
+        fields = ['subject', 'template',
                   'date_is_absolute',
                   'send_date', 'send_offset_days', 'send_offset_time',
-                  'include_pending', 'all_products', 'limit_products']
+                  'include_pending', 'all_products', 'limit_products',
+                  'send_to']
 
         field_classes = {
             'subevent': SafeModelMultipleChoiceField,
@@ -213,8 +212,10 @@ class CreateRule(I18nModelForm):
 
         labels = {
             'include_pending': _('Include pending orders'),
-            'offset_to_event_end': _('Offset is from the end of the event'),
-
+            'template': _('Message'),
+            'date_is_absolute': _('Type of schedule time'),
+            'send_offset_days': _('Number of days'),
+            'send_offset_time': _('Time of day'),
         }
 
         help_texts = {
@@ -236,22 +237,6 @@ class CreateRule(I18nModelForm):
             kwargs['initial']['date_is_absolute'] = dia
 
         super().__init__(*args, **kwargs)
-
-        if self.event.has_subevents:
-            self.fields['subevent'].queryset = self.event.subevents.all()
-            self.fields['subevent'].widget = Select2Multiple(
-                attrs={
-                    'data-model-select2': 'event',
-                    'data-select2-url': reverse('control:event.subevents.select2', kwargs={
-                        'event': self.event.slug,
-                        'organizer': self.event.organizer.slug,
-                    }),
-                    'data-placeholder': pgettext_lazy('subevent', 'Date')
-                }
-            )
-            self.fields['subevent'].widget.choices = self.fields['subevent'].choices
-        else:
-            del self.fields['subevent']
 
         self.fields['limit_products'] = forms.ModelMultipleChoiceField(
             widget=forms.CheckboxSelectMultiple(
